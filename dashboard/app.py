@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import missingno as msno
 import os
 import glob
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 import sys
 
@@ -133,6 +135,43 @@ if df_cluster is not None:
             sns.histplot(numeric_df[selected_col], kde=True, ax=ax)
             ax.set_title(f"Distribution of {selected_col}")
             st.pyplot(fig_hist)
+
+    st.subheader("Clustering Optimization: Elbow Method")
+    st.markdown("""
+    The **Elbow Method** helps identify the optimal number of clusters ($k$) by minimizing inertia (within-cluster sum of squares).
+    Look for the "elbow" point where the inertia decrease slows down significantly.
+    """)
+    
+    if not numeric_df.empty:
+        if st.button("Run Elbow Analysis"):
+            with st.spinner("Computing K-Means for k=2 to 10..."):
+                # 1. Standardize the data
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(numeric_df)
+
+                # 2. Calculate Inertia for different k
+                inertias = []
+                K_range = range(2, 11)  # Test k from 2 to 10
+
+                progress_bar = st.progress(0)
+                for i, k in enumerate(K_range):
+                    kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+                    kmeans.fit(X_scaled)
+                    inertias.append(kmeans.inertia_)
+                    progress_bar.progress((i + 1) / len(K_range))
+
+                # 3. Plot the Elbow Curve
+                fig_elbow, ax = plt.subplots(figsize=(10, 6))
+                ax.plot(K_range, inertias, marker='o', linestyle='--', color='b')
+                ax.set_xlabel('Number of Clusters (k)')
+                ax.set_ylabel('Inertia')
+                ax.set_title('Elbow Method For Optimal k')
+                ax.grid(True)
+                st.pyplot(fig_elbow)
+                plt.close(fig_elbow)
+    else:
+        st.warning("No numeric data available for Clustering Analysis.")
+
 else:
     st.error(f"File not found: {FILE_CLUSTER}. Please run the transformation pipeline first.")
 
