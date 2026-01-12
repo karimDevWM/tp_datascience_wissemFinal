@@ -26,7 +26,7 @@ def clustering(df_cluster):
         inertias.append(kmeans.inertia_)
 
     # 3. K-Means Final (Disons que le coude est à k=4) 
-    k_optimal = 4 
+    k_optimal = 4
     kmeans_final = KMeans(n_clusters=k_optimal, random_state=42, n_init=10)
     labels = kmeans_final.fit_predict(X_scaled)
 

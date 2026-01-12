@@ -29,7 +29,6 @@ def transform(df_dic):
         trans = df_dic['product_category_name_translation']
         products = pd.merge(products, trans, on='product_category_name', how='left')
         products['product_category_name'] = products['product_category_name_english'].fillna(products['product_category_name'])
-        products.drop(columns=['product_category_name_english'], inplace=True)
 
     df_items_prod = pd.merge(items, products, on='product_id', how='left')
 
@@ -62,7 +61,8 @@ def transform(df_dic):
                                                             
     # Nettoyage des NaN post-merge
     df_final['review_score'] = df_final['review_score'].fillna(df_final['review_score'].mean())
-    df_final.dropna(subset=['product_weight_g'], inplace=True) # On supprime les lignes sans poids
+    # df_final.dropna(subset=['product_weight_g'], inplace=True) # On supprime les lignes sans poids
+    df_final['product_weights_g'] = df_final['product_weight_g'].fillna(df_final['product_weight_g'].mean())
     
     # Nettoyage final des NaN
     # 1. Remplacer les NaN dans les reviews par la moyenne (si ce n'est pas déjà fait)

@@ -16,7 +16,7 @@ def explore_dfs(df_dic):
         
         # Calculate detailed metrics
         summary_data = {
-            'Type': df.dtypes,
+            'Type': df.dtypes.astype(str),
             'Unique': df.nunique(),
             'Missing': df.isna().sum(),
             'Missing %': (df.isna().sum() / len(df)) * 100

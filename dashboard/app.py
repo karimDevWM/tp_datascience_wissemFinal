@@ -7,23 +7,19 @@ import os
 import glob
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 import sys
+import os
 
-# Add src to sys.path
+# Add project root to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.abspath(os.path.join(current_dir, '..', 'src'))
-if src_dir not in sys.path:
-    sys.path.append(src_dir)
+project_root = os.path.abspath(os.path.join(current_dir, '..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
-import importlib
-import Extract
-import Explore
-importlib.reload(Extract)
-importlib.reload(Explore)
-
-from Extract import extract_dfs
-from Explore import explore_dfs
+from src.Extract import extract_dfs
+from src.Explore import explore_dfs
 
 # Paths to data files
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -169,6 +165,70 @@ if df_cluster is not None:
                 ax.grid(True)
                 st.pyplot(fig_elbow)
                 plt.close(fig_elbow)
+
+    st.subheader("Clustering Validation & Profiling")
+    st.markdown("Select a number of clusters ($k$) to compute validation metrics and view cluster profiles.")
+    
+    k_selected = st.slider("Select number of clusters (k)", min_value=2, max_value=10, value=4)
+    
+    if st.button(f"Run Clustering (k={k_selected})"):
+        if not numeric_df.empty:
+            with st.spinner(f"Clustering with k={k_selected} and calculating metrics..."):
+                # 1. Standardize
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(numeric_df)
+                
+                # 2. Fit K-Means
+                kmeans_final = KMeans(n_clusters=k_selected, random_state=42, n_init=10)
+                labels = kmeans_final.fit_predict(X_scaled)
+                
+                # 3. Validation Metrics
+                # Sampling for Silhouette if dataset is large (>10k rows)
+                if len(X_scaled) > 10000:
+                    indices = list(range(len(X_scaled)))
+                    import random
+                    sample_indices = random.sample(indices, 10000)
+                    X_sample = X_scaled[sample_indices]
+                    labels_sample = labels[sample_indices]
+                    st.info(f"Calculating Silhouette Score on a sample of 10,000 points (Total: {len(X_scaled)})...")
+                else:
+                    X_sample = X_scaled
+                    labels_sample = labels
+                
+                sil_score = silhouette_score(X_sample, labels_sample)
+                db_score = davies_bouldin_score(X_sample, labels_sample)
+                
+                col1, col2 = st.columns(2)
+                col1.metric("Silhouette Score (Higher is better)", f"{sil_score:.3f}")
+                col2.metric("Davies-Bouldin Score (Lower is better)", f"{db_score:.3f}")
+                
+                # 4. Visualization
+                # Add cluster labels to a temporary copy for plotting
+                df_viz = df_cluster.copy()
+                df_viz['Cluster'] = labels
+                
+                st.subheader("Cluster Visualization")
+                # Check if specific columns exist for the requested scatterplot
+                if 'price' in df_viz.columns and 'review_score' in df_viz.columns:
+                    fig_scatter, ax = plt.subplots(figsize=(10, 6))
+                    sns.scatterplot(data=df_viz, x='price', y='review_score', hue='Cluster', palette='viridis', alpha=0.6, ax=ax)
+                    ax.set_title(f"Clusters: Price vs Review Score (k={k_selected})")
+                    st.pyplot(fig_scatter)
+                else:
+                    st.warning("Columns 'price' and 'review_score' not found for scatterplot. Showing pairplot of first 3 numeric columns.")
+                    # Fallback visualization
+                    cols_to_plot = numeric_df.columns[:3].tolist()
+                    if cols_to_plot:
+                         fig_pair = sns.pairplot(df_viz, vars=cols_to_plot, hue='Cluster', palette='viridis')
+                         st.pyplot(fig_pair)
+
+                # 5. Profiling
+                st.subheader("Cluster Profiles (Mean Values)")
+                cluster_means = df_viz.groupby('Cluster')[numeric_df.columns].mean()
+                st.dataframe(cluster_means.style.highlight_max(axis=0))
+        else:
+            st.error("No numeric data available for clustering.")
+
     else:
         st.warning("No numeric data available for Clustering Analysis.")
 
