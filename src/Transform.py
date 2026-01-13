@@ -62,15 +62,23 @@ def transform(df_dic):
     # Nettoyage des NaN post-merge
     df_final['review_score'] = df_final['review_score'].fillna(df_final['review_score'].mean())
     # df_final.dropna(subset=['product_weight_g'], inplace=True) # On supprime les lignes sans poids
-    df_final['product_weights_g'] = df_final['product_weight_g'].fillna(df_final['product_weight_g'].mean())
+    # Impute missing (NaN) and zero product_weights_g with the mean of the respective product_category_name.
+    # Fallback to the global mean if category mean is unavailable.
+    category_mean_weights = df_final.groupby('product_category_name')['product_weight_g'].transform(
+        lambda x: x[(x.notna()) & (x != 0)].mean()
+    )
+    global_mean_weight = df_final.loc[df_final['product_weight_g'] != 0, 'product_weight_g'].mean()
+    mask_to_impute = df_final['product_weight_g'].isna() | (df_final['product_weight_g'] == 0)
+    df_final.loc[mask_to_impute, 'product_weight_g'] = category_mean_weights.fillna(global_mean_weight)
+    
     
     # Nettoyage final des NaN
     # 1. Remplacer les NaN dans les reviews par la moyenne (si ce n'est pas déjà fait)
-    nb_na = df_final['review_score'].isna().sum()
-    if nb_na > 0:
-        mean_val = df_final['review_score'].mean()
-        print(f"Imputation de {nb_na} valeurs manquantes dans 'review_score' avec la moyenne: {mean_val:.4f}")
-        df_final['review_score'] = df_final['review_score'].fillna(mean_val)
+    # nb_na = df_final['review_score'].isna().sum()
+    # if nb_na > 0:
+    #     mean_val = df_final['review_score'].mean()
+    #     print(f"Imputation de {nb_na} valeurs manquantes dans 'review_score' avec la moyenne: {mean_val:.4f}")
+    #     df_final['review_score'] = df_final['review_score'].fillna(mean_val)
     
     # 2. Pour les autres données physiques (prix, poids), on ne peut pas inventer.
     # donc On supprime les lignes qui ont encore des NaN.
